@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZARTZ – Contemporary art, reviews and exhibitions</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://js.paystack.co/v2/inline.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+  <a class="brand" href="#shop" id="brand">ZARTZ</a>
+  <nav aria-label="Main"><a href="#shop" data-v="shop">Home</a><a href="#artworks" data-v="artworks">Artwork</a><a href="#journal" data-v="journal">Curators' Journal</a><a href="#exhibitions" data-v="exhibitions">Exhibitions</a><a href="#dashboard" data-v="dashboard" id="dashNav" hidden>Dashboard</a></nav>
+  <a class="btn dark sellbtn" href="#sell" data-v="sell">Sell your art</a>
+  <button class="cartbtn" id="cartBtn" aria-label="Open cart">Cart <b id="cnt">0</b></button>
+</div></header>
+
+<main>
+<section id="shop" class="view">
+  <div class="slider" id="slw" role="region" aria-roledescription="carousel" aria-label="Featured">
+    <div id="sl"></div>
+    <div class="slc"><button id="prev" aria-label="Previous slide">‹</button><div id="dots"></div><button id="next" aria-label="Next slide">›</button><button id="pp" aria-label="Pause slides">Pause</button></div>
+  </div>
+  <div class="wrap">
+    <h2 style="margin-top:0">Featured artworks</h2><p class="sub">Discover selected works from artists, curators and museums.</p>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Search by title or artist" aria-label="Search artwork">
+      <div id="chips" class="chips" role="group" aria-label="Filter by medium"></div>
+      <select id="sort" aria-label="Sort"><option value="top">Top rated</option><option value="lo">Price: low to high</option><option value="hi">Price: high to low</option><option value="new">Newest</option></select>
+    </div>
+    <p id="count" class="mut" aria-live="polite"></p>
+    <div id="grid" class="grid"></div>
+    <div style="text-align:center;margin:34px 0"><a class="btn dark" href="#artworks">View more artworks</a></div>
+    <div class="band"><div><h2>Are you an artist?</h2><p>Create a profile, upload your work and sell to collectors worldwide.</p></div><a class="btn dark" href="#sell">Start selling</a></div>
+  </div>
+</section>
+
+<section id="artworks" class="view wrap">
+  <h2>All artworks on sale</h2><p class="sub">Browse every approved artwork and filter by artist, medium, seller, role or price.</p>
+  <div class="tools"><input id="aq" type="search" placeholder="Search artwork, artist, curator or museum" aria-label="Search all artworks"><select id="arole" aria-label="Seller type"><option value="">All sellers</option><option value="artist">Artists</option><option value="curator">Curators</option><option value="museum">Museums</option></select><select id="asort" aria-label="Sort artworks"><option value="top">Top rated</option><option value="new">Newest</option><option value="lo">Price: low to high</option><option value="hi">Price: high to low</option></select></div>
+  <div id="achips" class="chips"></div><p id="acount" class="mut"></p><div id="agrid" class="grid"></div>
+</section>
+
+<section id="profile" class="view wrap"></section>
+<section id="journal-post" class="view wrap"></section>
+<section id="dashboard" class="view wrap"></section>
+
+<section id="journal" class="view wrap">
+  <h2>Curators' Journal</h2><p class="sub">Field notes, essays and studio visits from the curators who select for us.</p>
+  <div id="jchips" class="chips"></div><div id="posts" class="posts"></div>
+</section>
+
+<section id="exhibitions" class="view wrap">
+  <h2>Find an exhibition</h2><p class="sub">Search museums by city, curator or show, then see the works from each exhibition.</p>
+  <div class="tools"><input id="eq" type="search" placeholder="City, museum or curator" aria-label="Search exhibitions">
+  <select id="est" aria-label="Status"><option value="">All dates</option><option value="now">On now</option><option value="soon">Upcoming</option><option value="past">Closed</option></select></div>
+  <div id="exs" class="exs"></div>
+</section>
+
+<section id="exhibition" class="view wrap"></section>
+<section id="sell" class="view wrap"></section>
+<section id="admin" class="view wrap"></section>
+</main>
+
+<footer><div class="wrap"><b id="fname">ZARTZ</b><span id="ftxt"></span><a href="#admin" class="mut">Admin</a></div></footer>
+
+<dialog id="dlg" aria-label="Artwork details"></dialog>
+<dialog id="paydlg" aria-label="Checkout">
+  <div style="padding:28px">
+    <button class="x" id="payx" aria-label="Close checkout">×</button>
+    <h2>Checkout</h2>
+    <p class="mut">Enter your email to continue securely with Paystack.</p>
+    <form id="payform">
+      <label>Email address<input id="payemail" type="email" required autocomplete="email" placeholder="you@example.com"></label>
+      <button class="btn dark" type="submit">Continue to Paystack</button>
+      <p class="mut" id="paystatus" aria-live="polite"></p>
+    </form>
+  </div>
+</dialog>
+<aside id="cart" aria-label="Cart" hidden><div class="ch"><b>Your cart</b><button id="cx" aria-label="Close cart">×</button></div><div id="items"></div><div class="cf"><div class="tot"><span>Total</span><b id="tot">$0</b></div><button class="btn dark" id="pay">Checkout</button><p class="mut" id="msg" aria-live="polite"></p></div></aside>
+<script src="script.js"></script>
+</body>
+</html>
