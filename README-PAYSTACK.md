@@ -1,53 +1,39 @@
-# ZARTZ — Paystack Test Checkout
+# ZARTZ Paystack + Supabase setup
 
-This build adds Paystack test-mode checkout to the existing ZARTZ storefront.
+The frontend uses Supabase Auth, Postgres and Storage. Never put `SUPABASE_SERVICE_ROLE_KEY`, a Supabase secret key, or `PAYSTACK_SECRET_KEY` in browser code or commit real secrets.
 
-## Environment variables
+## Vercel environment variables
 
-Set these in Vercel (do not commit the secret key):
+Set these under Project → Settings → Environment Variables, for Development/Preview/Production as needed:
 
-- `PAYSTACK_SECRET_KEY` = your Paystack **test secret key**
-- `PAYSTACK_PUBLIC_KEY` = your Paystack **test public key** (reserved for frontend integrations)
+- `SUPABASE_URL`: `https://lvxszuxfiezwwiuqzxxd.supabase.co`
+- `SUPABASE_ANON_KEY`: the Supabase publishable key (or legacy anon key); safe for browser/session validation.
+- `SUPABASE_SERVICE_ROLE_KEY`: service-role key from Supabase Project Settings → API Keys. Server-only, set as Secret.
+- `PAYSTACK_SECRET_KEY`: Paystack secret key. Server-only, set as Secret.
+- `PAYSTACK_PUBLIC_KEY`: optional if using Paystack inline JS elsewhere.
 
-The secret key is only read by the Vercel serverless functions under `api/paystack/`.
+After setting variables, redeploy the Vercel project.
 
-## Payment flow
+## Create the first administrator
 
-1. Customer adds artwork to the cart.
-2. Customer enters an email address.
-3. `/api/paystack/initialize` initializes the transaction server-side.
-4. Paystack Popup V2 completes the payment.
-5. Paystack returns a reference.
-6. `/api/paystack/verify` verifies the transaction server-side.
-7. The cart is cleared only after a successful verification response.
+1. Open the deployed site and use **Sell your art** to create an account with your intended administrator email.
+2. Confirm the email if Supabase email confirmation is enabled, then sign in once.
+3. In Supabase SQL Editor, run the following using that account's actual UUID from Authentication → Users:
 
-The current demo catalog stores prices in browser localStorage, so the initialization endpoint receives the cart amount from the browser. For a production marketplace, move product prices/orders to a trusted database and verify the expected amount server-side before fulfilling an order.
+```sql
+insert into public.app_admins (user_id)
+values ('PASTE_AUTH_USER_UUID_HERE')
+on conflict (user_id) do nothing;
+```
 
-## Local test
+4. Sign out and sign in again, then open the Admin link. Only accounts present in `app_admins` are administrators; browser metadata or a guessed password cannot grant admin access.
 
-Use a local server that supports the `/api` functions (for example Vercel CLI), then test with Paystack test mode.
+## Behaviour
 
-## Deployment
+- Seller accounts use Supabase Auth; profiles are stored in `public.profiles`.
+- Artwork images go to the public `artwork-images` bucket under a user-specific folder. PDF booklets go to the private `profile-booklets` bucket.
+- Artwork submissions are saved with `status='pending'`; only approved artworks appear publicly.
+- Paystack checkout takes artwork UUIDs only. The server recalculates prices from approved Supabase artwork rows, creates `orders` and `order_items`, then starts Paystack.
+- The verify endpoint checks the Paystack reference, paid status, exact amount and currency against the saved order before setting `payment_status='success'` and `paid_at`.
 
-Deploy the repository to Vercel and add the two Paystack environment variables in the Vercel project settings.
-
-
-## Marketplace enhancements
-
-This build also includes:
-
-- Curved/cornered `Sell your art` buttons.
-- Seller profiles for artists, curators and museums.
-- A personal seller dashboard for every profile.
-- Artwork submissions stay `Pending review` until an admin accepts them.
-- Admin can accept or reject submissions and leave a rejection note.
-- Accepted submissions automatically move to the public artworks-on-sale catalogue.
-- Curator and museum listings identify the reseller and retain the original artist information.
-- Clickable artist/curator/museum names open a digital profile booklet with biography, published artworks, journal posts and external links.
-- Homepage featured artworks plus a separate `View more artworks` catalogue page.
-- Catalogue filters for medium and seller type, plus search and sorting.
-- Curators' Journal articles have a dedicated reading page with pagination.
-- Homepage slide administration supports either generated art styles or an uploaded custom image.
-- Admin analytics records first-party page/artwork/profile/journal/search/cart/purchase activity, acquisition source, device, browser language/timezone and conversion indicators.
-
-The static demo stores marketplace data in browser localStorage. For a multi-user production marketplace, move profiles, submissions, approvals, analytics and orders to Supabase (or another trusted server-side database) and enforce admin permissions server-side.
+The project database schema and Row Level Security policies must be installed in the linked Supabase project. This repository integration expects the `public_profiles` view to expose public profile fields without exposing profile email addresses.
