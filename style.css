@@ -146,3 +146,10 @@ input[type=color]{padding:2px;height:40px;width:100%}
 .chip[aria-pressed="true"]{font-weight:700}
 #cart[hidden]{display:none!important}
 #cart{z-index:1000}
+
+
+/* Ensure the page remains vertically scrollable and provide a direct way back to the hero slider. */
+html{overflow-y:auto;scroll-behavior:smooth}
+body{min-height:100vh;overflow-y:auto!important}
+#backToSlider{position:fixed;right:18px;bottom:18px;z-index:60;display:none;background:var(--fg);color:var(--bg);border:1px solid var(--line);border-radius:999px;padding:10px 15px;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+#backToSlider.visible{display:block}
