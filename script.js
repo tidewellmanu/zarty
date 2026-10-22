@@ -251,7 +251,7 @@ var SS=[{k:'t',l:'Headline',r:1},{k:'s',l:'Text',t:'area'},{k:'b',l:'Button labe
 var SSET=[{k:'name',l:'Company name',r:1},{k:'tag',l:'Tagline'},{k:'foot',l:'Footer text'},{k:'pass',l:'Admin passcode',r:1}];
 var tab='works',edit=null,adminErr='';
 function refresh(keepAdmin){apply();slider();chips();grid();jchips();posts();renderExhibitions();cart();if(!keepAdmin&&location.hash==='#admin')admin()}
-function crud(key,title,sch,row,fixed){var L=db[key],it=edit!=null?L.filter(function(x){return x.id===edit})[0]:null;
+function crud(key,title,sch,row,fixed){var L=db[key],it=edit!=null?L.filter(function(x){return String(x.id)===String(edit)})[0]:null;
   var h='<h3>'+title+' ('+L.length+')</h3><div>'+L.map(function(x){var r=row(x);return '<div class="row2"><div><b>'+esc(r[0])+'</b>'+(x.st==='pending'?'<span class="pill">Pending</span>':'')+'<br><span class="mut">'+esc(r[1])+'</span></div><div class="acts">'+(x.st==='pending'?'<button class="btn dark" data-ap="'+x.id+'">Approve</button>':'')+'<button class="btn" data-ed="'+x.id+'">Edit</button>'+(fixed?'':'<button class="btn" data-del="'+x.id+'">Delete</button>')+'</div></div>'}).join('')+'</div>';
   if(fixed&&!it)return h+'<p class="note">Choose Edit on a slide to change its text, button, link and colours.</p>';
   return h+'<h3>'+(it?'Edit':'Add new')+'</h3><form id="af" class="af">'+sch.map(function(f){return fld(f,it?it[f.k]:(f.k==='dt'?today():f.k==='st'?'live':f.k==='y'?2026:f.k==='k'?'circles':f.k==='c1'?'#f3efe6':f.k==='c2'?'#2438ff':f.k==='c3'?'#ff6a3d':f.d))}).join('')+'<div><button class="btn dark" type="submit">'+(it?'Save changes':'Add')+'</button>'+(it?' <button class="btn" type="button" data-cancel>Cancel</button>':'')+'</div></form>'}
@@ -263,14 +263,14 @@ function admin(){var el=$('#admin');
   if(tab==='works')h+=crud('works','All artwork',SW,function(w){return[w.t+' – '+w.a,money(w.p)+' · '+w.m+(w.by?' · artist submission':'')]});
   if(tab==='posts')h+=crud('posts','Curators’ Journal',SP,function(p){return[p.t,fmt(p.dt)+' · '+p.c+' · '+p.g]});
   if(tab==='exs')h+=crud('exs','Exhibitions',SX,function(x){return[x.t+' at '+x.m,x.c+' · '+fmt(x.s)+' to '+fmt(x.e)]});
-  if(tab==='slides')h+=crud('slides','Homepage slides (7)',SS,function(s){return[s.t,s.b+' → '+s.l]},true);
+  if(tab==='slides'){h+=crud('slides','Homepage art-style slides',SS,function(s){return[s.t,s.b+' → '+s.l+(s.img?' · Custom image':' · Default '+(s.k||'circles')+' style')]});h+='<p class="note">Default generated art styles are selected automatically. To replace one with your own image, edit a slide and upload a JPG or PNG; to create another slide, use the Add form below.</p>';}
   if(tab==='rev')h+='<h3>Reviews ('+db.rev.length+')</h3>'+db.rev.map(function(r,i){var w=wk(r.w);return '<div class="row2"><div><b>'+esc(r.n)+'</b> <span class="st">'+stars(r.r)+'</span> on '+esc(w?w.t:'removed work')+'<br><span class="mut">'+esc(r.t)+'</span></div><button class="btn sm" data-rd="'+i+'">Delete</button></div>'}).join('')+'<h3>Feedback ('+db.fb.length+')</h3>'+db.fb.map(function(r,i){var w=wk(r.w);return '<div class="row2"><div><b>'+esc(r.n)+'</b><span class="tag">'+esc(r.a)+'</span> on '+esc(w?w.t:'removed work')+'<br><span class="mut">'+esc(r.t)+'</span></div><button class="btn sm" data-fd="'+i+'">Delete</button></div>'}).join('')+'<h3>Artist signups ('+db.artists.length+')</h3>'+(db.artists.length?db.artists.map(function(a){return '<div class="row2"><div><b>'+esc(a.name)+'</b> · '+esc(a.country)+'<br><span class="mut">'+esc(a.email)+' · '+esc(a.bio)+'</span></div></div>'}).join(''):'<p class="mut">No artists have signed up yet.</p>');
   if(tab==='set')h+='<h3>Site settings</h3><form id="af" class="af">'+SSET.map(function(f){return fld(f,db.set[f.k])}).join('')+'<div><button class="btn dark" type="submit">Save settings</button></div></form><h3>Reset</h3><p class="mut">Restore the original demo content. This removes all your changes, reviews and artist submissions.</p><button class="btn" data-reset>Reset demo data</button>';
   el.innerHTML=h;
   var f=$('#af');if(f)f.onsubmit=function(e){e.preventDefault();
     if(tab==='set'){Object.assign(db.set,read(f,SSET));save();refresh(true);admin();return}
     var sch={works:SW,posts:SP,exs:SX,slides:SS}[tab],o=read(f,sch),L=db[tab];
-    if(edit!=null)Object.assign(L.filter(function(x){return x.id===edit})[0],o);
+    if(edit!=null){var existing=L.filter(function(x){return String(x.id)===String(edit)})[0];if(existing)Object.assign(existing,o)}
     else{o.id=nid();if(tab==='works')o.pal=PALS[o.id%PALS.length];L.push(o)}
     edit=null;save();refresh(true);admin()}}
 $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
@@ -280,7 +280,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   if(d.ed){edit=d.ed;admin();var form=$('#af');if(form)form.scrollIntoView({block:'center'});return}
   if(d.cancel!==undefined){edit=null;admin();return}
   if(d.ap){wk(+d.ap).st='live';changed=true}
-  if(d.del&&confirm('Delete this item? This cannot be undone.')){db[tab]=L.filter(function(x){return x.id!==+d.del});changed=true}
+  if(d.del&&confirm('Delete this item? This cannot be undone.')){db[tab]=L.filter(function(x){return String(x.id)!==String(d.del)});changed=true}
   if(d.rd){db.rev.splice(+d.rd,1);changed=true}
   if(d.fd){db.fb.splice(+d.fd,1);changed=true}
   if(d.reset!==undefined&&confirm('Reset everything to the original demo content?')){var p=db.set.pass;db=seed();db.set.pass=p;changed=true}
