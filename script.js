@@ -223,9 +223,15 @@ function fld(f,v){var n='name="'+f.k+'"',r=f.r?' required':'',val=esc(v),h='<lab
   return h+'</label>'}
 function read(form,sch){var d=new FormData(form),o={};sch.forEach(function(f){var v=d.get(f.k);o[f.k]=(f.t==='num'||f.t==='ex')?+v:v});return o}
 document.addEventListener('change',function(e){var t=e.target;if(!t.name||t.name!=='booklet'||!t.files[0])return;var f=t.files[0];if(f.type!=='application/pdf'){alert('Digital booklet must be a PDF file.');t.value='';return}if(f.size>5*1024*1024){alert('Digital booklet PDF must be 5 MB or smaller.');t.value='';return}var r=new FileReader();r.onload=function(){window.__zartzBooklet={data:r.result,name:f.name}};r.readAsDataURL(f)});
-document.addEventListener('change',function(e){var t=e.target;if(!t.dataset||!t.dataset.img||!t.files[0])return;
-  var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){var s=Math.min(1,700/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-    var url=c.toDataURL('image/jpeg',.72);t.nextElementSibling.value=url;var p=t.parentNode.querySelector('.pv')||t.parentNode.appendChild(document.createElement('img'));p.className='pv';p.alt='Preview';p.src=url;var sp=t.parentNode.querySelector('span');if(sp)sp.remove()};im.src=fr.result};fr.readAsDataURL(t.files[0])});
+document.addEventListener('change',function(e){var t=e.target;if(!t.dataset||!t.dataset.img||!t.files||!t.files[0])return;
+  var hidden=t.nextElementSibling,file=t.files[0];t.dataset.processing='true';t.setAttribute('aria-busy','true');
+  var fr=new FileReader();fr.onerror=function(){delete t.dataset.processing;t.removeAttribute('aria-busy');alert('Could not read this image. Please choose it again.');};
+  fr.onload=function(){var im=new Image();im.onerror=function(){delete t.dataset.processing;t.removeAttribute('aria-busy');alert('This image could not be decoded. Please choose a JPG or PNG image.');};
+    im.onload=function(){try{var scale=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*scale));c.height=Math.max(1,Math.round(im.height*scale));c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      var url=c.toDataURL('image/jpeg',.82);hidden.value=url;hidden.dataset.imageReady='true';var p=t.parentNode.querySelector('.pv')||t.parentNode.appendChild(document.createElement('img'));p.className='pv';p.alt='Selected image preview';p.src=url;var sp=t.parentNode.querySelector('span');if(sp)sp.remove();
+    }catch(err){alert('Could not prepare this image. Please try a smaller JPG or PNG file.');}
+    finally{delete t.dataset.processing;t.removeAttribute('aria-busy');}};
+    im.src=fr.result;};fr.readAsDataURL(file);});
 
 /* ---------- sell page (artist signup) ---------- */
 var sellMsg='';
@@ -643,6 +649,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   }
   document.addEventListener('submit',async function(e){
     var f=e.target;if(!f||!['sp','sa','supabaseLogin','sbAdminLogin','payform','af'].includes(f.id))return;
+    var pendingImage=f.querySelector('input[data-img][data-processing="true"]');if(pendingImage){e.preventDefault();e.stopImmediatePropagation();sbNotice('Please wait until the image preview finishes loading, then save again.',f);return;}
     if(f.id==='af'&&(!sbUser||!sbAdmin))return;
     e.preventDefault();e.stopImmediatePropagation();if(sbBusy)return;sbBusy=true;
     var button=f.querySelector('button[type="submit"]');if(button)button.disabled=true;
@@ -691,6 +698,11 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
             var imgBlob=await (await fetch(values.img)).blob();
             var imgFile=new File([imgBlob],'homepage-slide-'+Date.now()+'.jpg',{type:imgBlob.type||'image/jpeg'});
             imagePath=await sbUpload('artwork-images',imgFile,sbUser.id);
+            var publicUrl=sb.storage.from('artwork-images').getPublicUrl(imagePath).data.publicUrl;
+            var verifyResponse=await fetch(publicUrl,{cache:'no-store'});
+            if(!verifyResponse.ok)throw new Error('Image uploaded, but Supabase could not serve it publicly (HTTP '+verifyResponse.status+'). Check the artwork-images bucket and storage read policy.');
+            var verifyBlob=await verifyResponse.blob();
+            if(!verifyBlob.size||!/^image\\//i.test(verifyBlob.type))throw new Error('Supabase returned an empty or non-image file after upload. Please try a JPG or PNG image.');
           }
           var rowS={headline:values.t,subtitle:values.s||'',button_label:values.b,button_target:values.l,art_style:values.k,background_color:values.c1,button_color:values.c2,art_color:values.c3,image_path:imagePath,sort_order:slide?db.slides.indexOf(slide):db.slides.length,is_active:true};
           var savedS=slide&&slide.supabaseId?await sb.from('homepage_slides').update(rowS).eq('id',slide.supabaseId):await sb.from('homepage_slides').insert(rowS);if(savedS.error)throw savedS.error;
@@ -703,6 +715,12 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
           var savedE=ex&&ex.supabaseId?await sb.from('exhibitions').update(rowE).eq('id',ex.supabaseId):await sb.from('exhibitions').insert(rowE);if(savedE.error)throw savedE.error;
         }else throw new Error('This settings section is not yet stored in Supabase. Artwork, journal, exhibitions and slides are connected.');
         edit=null;await sbRefresh();admin();
+         if(tab==='slides'&&imagePath){
+           var persisted=(db.slides||[]).filter(function(x){return x.imagePath===imagePath})[0];
+           if(!persisted||!persisted.img)throw new Error('The slide record did not reload with its saved image path. Please check the homepage_slides row in Supabase.');
+           await new Promise(function(resolve,reject){var testImage=new Image();testImage.onload=resolve;testImage.onerror=function(){reject(new Error('The slide row saved, but its image did not load after refreshing from Supabase.'));};testImage.src=persisted.img+(persisted.img.indexOf('?')>=0?'&':'?')+'verify='+Date.now();});
+           sbNotice('Verified: the slide and image are saved in Supabase Storage, reloaded from Supabase, and the image loads after refresh.',document.querySelector('#admin'));
+         }
       }
     }catch(err){console.error(err);sbNotice(err.message||'Request failed. Please try again.',location.hash==='#admin'?document.querySelector('#admin'):document.querySelector('#sell'));}
     finally{sbBusy=false;if(button)button.disabled=false;}
