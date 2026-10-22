@@ -310,3 +310,49 @@ dialog::backdrop{background:rgba(28,35,54,.22);-webkit-backdrop-filter:blur(5px)
   .sl .sa,.sl.on .sa,.im:has(img)::after{animation:none!important}
   .im img,.im svg,.slide-art-image,.sl .sa img,.btn,.cartbtn,.chip,.art{transition:none!important}
 }
+
+
+/* Mobile header repair: compact first row and a single horizontally scrollable nav row. */
+@media(max-width:760px){
+  .top{
+    position:fixed!important;inset:0 0 auto 0!important;width:100%!important;
+    max-width:100vw!important;overflow:hidden!important;z-index:1000!important;
+    box-sizing:border-box!important;
+  }
+  .top .wrap.bar{
+    width:100%!important;max-width:none!important;min-width:0!important;
+    height:auto!important;min-height:0!important;box-sizing:border-box!important;
+    margin:0!important;padding:9px 12px 8px!important;
+    display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;
+    grid-template-rows:auto auto!important;align-items:center!important;
+    column-gap:8px!important;row-gap:9px!important;
+  }
+  .top .brand{
+    grid-column:1;grid-row:1;min-width:0!important;
+    font-size:clamp(16px,4.6vw,20px)!important;letter-spacing:.14em!important;
+    white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;
+  }
+  .top .sellbtn{grid-column:2;grid-row:1;margin:0!important;white-space:nowrap!important;padding:7px 10px!important;font-size:12px!important}
+  .top .cartbtn{grid-column:3;grid-row:1;margin:0!important;white-space:nowrap!important;padding:7px 9px!important;font-size:12px!important}
+  .top nav{
+    grid-column:1/-1!important;grid-row:2!important;
+    display:flex!important;flex-wrap:nowrap!important;justify-content:flex-start!important;
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    gap:18px!important;margin:0!important;padding:2px 0 5px!important;
+    overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;
+    font-size:12px!important;line-height:1.4!important;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .top nav::-webkit-scrollbar{display:none}
+  .top nav a{flex:0 0 auto!important;white-space:nowrap!important;display:inline-block!important}
+  body{padding-top:102px!important}
+  main{scroll-margin-top:112px}
+  .view,[id]{scroll-margin-top:112px}
+}
+@media(max-width:360px){
+  .top .wrap.bar{padding:8px 9px 7px!important;column-gap:6px!important;row-gap:7px!important}
+  .top .brand{font-size:15px!important;letter-spacing:.1em!important}
+  .top .sellbtn,.top .cartbtn{font-size:11px!important;padding:6px 7px!important}
+  .top nav{gap:15px!important;font-size:11px!important}
+  body{padding-top:94px!important}
+}
