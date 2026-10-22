@@ -277,7 +277,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   var L=db[tab]||[],changed=false;
   if(d.tab){tab=d.tab;edit=null;admin();return}
   if(d.out!==undefined){sessionStorage.removeItem('zadm');admin();return}
-  if(d.ed){edit=+d.ed;admin();$('#af').scrollIntoView({block:'center'});return}
+  if(d.ed){edit=d.ed;admin();var form=$('#af');if(form)form.scrollIntoView({block:'center'});return}
   if(d.cancel!==undefined){edit=null;admin();return}
   if(d.ap){wk(+d.ap).st='live';changed=true}
   if(d.del&&confirm('Delete this item? This cannot be undone.')){db[tab]=L.filter(function(x){return x.id!==+d.del});changed=true}
@@ -686,7 +686,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
         }else if(tab==='slides'){
           var slide=edit!=null?db.slides.filter(function(x){return String(x.id)===String(edit)})[0]:null;
           var imagePath=slide&&slide.imagePath||null;
-          if(values.img&&/^data:image\\//i.test(values.img)){
+          if(values.img&&String(values.img).indexOf('data:image/')===0){
             var imgBlob=await (await fetch(values.img)).blob();
             var imgFile=new File([imgBlob],'homepage-slide-'+Date.now()+'.jpg',{type:imgBlob.type||'image/jpeg'});
             imagePath=await sbUpload('artwork-images',imgFile,sbUser.id);
