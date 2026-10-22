@@ -585,6 +585,8 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     db.posts=localPosts.concat(rs[2].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.title,c:r.author_name,g:r.category,dt:r.published_at||r.created_at,s:r.summary,b:r.body,img:r.cover_image_path||''};}));
     db.exs=localExhibitions.concat(rs[3].data.map(function(r){return{id:r.id,supabaseId:r.id,m:r.museum_name,c:r.city||'',t:r.title,cu:r.curator_name||'',s:r.starts_on||today(),e:r.ends_on||today(),ar:'',description:r.description||''};}));
     db.slides=localSlides.concat(rs[4].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.headline,s:r.subtitle,b:r.button_label,l:r.button_target,k:r.art_style,c1:r.background_color,c2:r.button_color,c3:r.art_color,img:r.image_path?sbImage(r.image_path):'',imagePath:r.image_path||''};}));
+    /* Prefer a persisted custom-image slide as the initial homepage slide after every reload. */
+    var firstCustomSlide=db.slides.findIndex(function(x){return !!(x.imagePath&&x.img);});if(firstCustomSlide>=0)si=firstCustomSlide;
     var au=await sb.auth.getUser();sbUser=au.data&&au.data.user||null;sbProfile=null;db.currentProfileId=null;sbAdmin=false;
     if(sbUser){
       var pr=await sb.from('profiles').select('*').eq('id',sbUser.id).maybeSingle();
@@ -688,6 +690,13 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
         document.querySelector('#paydlg').close();location.href=data.authorization_url;
       }else if(f.id==='af'){
         var sch=({works:SW,posts:SP,exs:SX,slides:SS,set:SSET})[tab]||[],values=read(f,sch);
+        /* Read the selected file directly as a fallback: never silently save a slide without its chosen image just because the preview field did not populate. */
+        if(tab==='slides'){
+          var chosenSlideFile=f.querySelector('input[data-img]');
+          if(chosenSlideFile&&chosenSlideFile.files&&chosenSlideFile.files[0]&&(!values.img||String(values.img).indexOf('data:image/')!==0)){
+            values.img=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||''));};reader.onerror=function(){reject(new Error('Could not read the selected slide image. Please choose the image again.'));};reader.readAsDataURL(chosenSlideFile.files[0]);});
+          }
+        }
         if(tab==='works'){
           var item=edit!=null?db.works.filter(function(x){return String(x.id)===String(edit)})[0]:null;if(!item||!item.supabaseId)throw new Error('Only database-backed artwork can be edited.');
           var up=await sb.from('artworks').update({title:values.t,artist_name:values.a,medium:values.m||values.category,year:Number(values.y)||null,dimensions:values.sz,price:Number(values.p)||0,description:values.d||'',status:values.st==='live'?'approved':values.st}).eq('id',item.supabaseId);if(up.error)throw up.error;
