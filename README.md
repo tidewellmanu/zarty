@@ -48,3 +48,7 @@ Checkout must use the server-side API routes. The server calculates order totals
 Repository: [tidewellmanu/zarty](https://github.com/tidewellmanu/zarty)
 
 Production site: [https://zarty-tidewellmanu.vercel.app](https://zarty-tidewellmanu.vercel.app)
+
+Admin dashboard: [https://zarty-tidewellmanu.vercel.app/#admin](https://zarty-tidewellmanu.vercel.app/#admin)
+
+Sign in with the administrator account to access the dashboard. The admin route is not linked in the public footer.
