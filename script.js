@@ -702,7 +702,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
             var verifyResponse=await fetch(publicUrl,{cache:'no-store'});
             if(!verifyResponse.ok)throw new Error('Image uploaded, but Supabase could not serve it publicly (HTTP '+verifyResponse.status+'). Check the artwork-images bucket and storage read policy.');
             var verifyBlob=await verifyResponse.blob();
-            if(!verifyBlob.size||!/^image\\//i.test(verifyBlob.type))throw new Error('Supabase returned an empty or non-image file after upload. Please try a JPG or PNG image.');
+            if(!verifyBlob.size||!/^image\//i.test(verifyBlob.type))throw new Error('Supabase returned an empty or non-image file after upload. Please try a JPG or PNG image.');
           }
           var rowS={headline:values.t,subtitle:values.s||'',button_label:values.b,button_target:values.l,art_style:values.k,background_color:values.c1,button_color:values.c2,art_color:values.c3,image_path:imagePath,sort_order:slide?db.slides.indexOf(slide):db.slides.length,is_active:true};
           var savedS=slide&&slide.supabaseId?await sb.from('homepage_slides').update(rowS).eq('id',slide.supabaseId):await sb.from('homepage_slides').insert(rowS);if(savedS.error)throw savedS.error;
@@ -714,7 +714,12 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
           var ex=edit!=null?db.exs.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowE={title:values.t,museum_name:values.m,city:values.c,curator_name:values.cu,starts_on:values.s||null,ends_on:values.e||null,description:values.description||'',status:'published'};
           var savedE=ex&&ex.supabaseId?await sb.from('exhibitions').update(rowE).eq('id',ex.supabaseId):await sb.from('exhibitions').insert(rowE);if(savedE.error)throw savedE.error;
         }else throw new Error('This settings section is not yet stored in Supabase. Artwork, journal, exhibitions and slides are connected.');
-        edit=null;await sbRefresh();admin();
+        edit=null;await sbRefresh();
+         if(tab==='slides'&&imagePath){
+           var targetSlideIndex=(db.slides||[]).findIndex(function(x){return x.imagePath===imagePath||(slide&&slide.supabaseId&&x.supabaseId===slide.supabaseId);});
+           if(targetSlideIndex>=0){si=targetSlideIndex;slider();}
+         }
+         admin();
          if(tab==='slides'&&imagePath){
            var persisted=(db.slides||[]).filter(function(x){return x.imagePath===imagePath})[0];
            if(!persisted||!persisted.img)throw new Error('The slide record did not reload with its saved image path. Please check the homepage_slides row in Supabase.');
