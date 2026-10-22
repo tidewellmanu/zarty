@@ -543,6 +543,172 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   apply=function(){baseApply();updateIdentity()};
   /* Ensure existing saved artist sessions become dashboard sessions. */
   if(!db.currentProfileId&&db.me){var aa=db.artists.filter(function(x){return x.id===db.me})[0];if(aa){var pp=ensureProfileFromArtist(aa);db.currentProfileId=pp.id;save()}}
+
+  /* ---------- Supabase production data/auth integration ---------- */
+  var sb = window.supabase.createClient(window.ZARTZ_SUPABASE_CONFIG.url, window.ZARTZ_SUPABASE_CONFIG.key);
+  var sbUser = null, sbProfile = null, sbAdmin = false, sbBusy = false;
+  function sbNotice(message, host) {
+    var el=host||document.querySelector('#sell')||document.querySelector('#admin'); if(!el)return;
+    var old=el.querySelector('.sb-notice');if(old)old.remove();
+    var n=document.createElement('p');n.className='note sb-notice';n.setAttribute('role','status');n.textContent=message;el.prepend(n);
+  }
+  function sbImage(path){if(!path)return '';if(/^https?:\/\//i.test(path))return path;return sb.storage.from('artwork-images').getPublicUrl(path).data.publicUrl;}
+  function workFromRow(r){var id=nid();return{id:id,supabaseId:r.id,t:r.title,a:r.artist_name,m:r.medium||'Painting',y:r.year||2026,sz:r.dimensions||'',p:Number(r.price||0),cat:r.medium||'Other',category:r.medium||'Other',d:r.description||'',img:sbImage(r.image_path||r.image_url),imagePath:r.image_path||'',k:r.art_style||'circles',pal:PALS[id%PALS.length],ex:0,st:r.status==='approved'?'live':r.status,by:null,sellerId:r.seller_id,sellerRole:'artist',originalArtist:r.original_artist_name||r.artist_name,originalArtistLink:r.original_artist_url||'',submittedAt:r.submitted_at,reviewNote:r.review_note||''};}
+  function profileFromRow(r){return{id:r.id,supabaseId:r.id,type:r.role||'artist',name:r.display_name,email:r.email||'',country:r.country||'',site:r.website||'',bio:r.bio||'',bookletUrl:'',bookletPath:r.booklet_path||'',links:Array.isArray(r.links)?r.links:[],createdAt:r.created_at||today()};}
+  async function sbHydrate(){
+    var rs=await Promise.all([
+      sb.from('artworks').select('*').order('created_at',{ascending:false}),
+      sb.from('public_profiles').select('*').order('created_at',{ascending:false}),
+      sb.from('journal_posts').select('*').eq('status','published').order('published_at',{ascending:false}),
+      sb.from('exhibitions').select('*').eq('status','published').order('starts_on',{ascending:true}),
+      sb.from('homepage_slides').select('*').eq('is_active',true).order('sort_order',{ascending:true})
+    ]);
+    var err=rs.filter(function(x){return x.error})[0];if(err)throw err.error;
+    db.works=rs[0].data.map(workFromRow);
+    db.profiles=rs[1].data.map(profileFromRow);
+    db.posts=rs[2].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.title,c:r.author_name,g:r.category,dt:r.published_at||r.created_at,s:r.summary,b:r.body,img:r.cover_image_path||''};});
+    db.exs=rs[3].data.map(function(r){return{id:r.id,supabaseId:r.id,m:r.museum_name,c:r.city||'',t:r.title,cu:r.curator_name||'',s:r.starts_on||today(),e:r.ends_on||today(),ar:'',description:r.description||''};});
+    db.slides=rs[4].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.headline,s:r.subtitle,b:r.button_label,l:r.button_target,k:r.art_style,c1:r.background_color,c2:r.button_color,c3:r.art_color,img:r.image_path?sbImage(r.image_path):''};});
+    var au=await sb.auth.getUser();sbUser=au.data&&au.data.user||null;sbProfile=null;db.currentProfileId=null;sbAdmin=false;
+    if(sbUser){
+      var pr=await sb.from('profiles').select('*').eq('id',sbUser.id).maybeSingle();
+      if(pr.error)throw pr.error;
+      if(pr.data){sbProfile=profileFromRow(pr.data);db.profiles=db.profiles.filter(function(p){return p.id!==sbProfile.id}).concat([sbProfile]);db.currentProfileId=sbProfile.id;}
+      var ad=await sb.from('app_admins').select('user_id').eq('user_id',sbUser.id).maybeSingle();
+      if(ad.error)throw ad.error;sbAdmin=!!(ad.data&&ad.data.user_id);
+      if(sbAdmin)sessionStorage.setItem('zadm','1');else sessionStorage.removeItem('zadm');
+    }else sessionStorage.removeItem('zadm');
+    save();
+  }
+  async function sbRefresh(){try{await sbHydrate();refresh(true);updateIdentity();route();}catch(e){console.error('Supabase load failed',e);sbNotice('Could not load Supabase data. Check Data API grants, the public_profiles view and RLS policies.');}}
+  function sbLoginMarkup(){return '<form id="supabaseLogin" class="pf" style="max-width:480px"><h3>Already registered? Sign in</h3><label>Email<input name="email" type="email" required autocomplete="email"></label><label>Password<input name="password" type="password" required autocomplete="current-password" minlength="8"></label><button class="btn" type="submit">Sign in</button></form>';}
+  var sbOriginalRenderSell=renderSell;
+  renderSell=function(){
+    sbOriginalRenderSell();
+    if(!sbProfile){
+      var old=document.querySelector('#supabaseLogin');if(old)old.remove();
+      var box=document.querySelector('#sell');if(box)box.insertAdjacentHTML('beforeend',sbLoginMarkup());
+      var f=document.querySelector('#sp');
+      if(f&&!f.querySelector('[name="password"]')){var lab=document.createElement('label');lab.innerHTML='Password (minimum 8 characters)<input name="password" type="password" required minlength="8" autocomplete="new-password">';f.insertBefore(lab,f.querySelector('button[type="submit"]'));}
+      var sub=document.querySelector('#sell .sub');if(sub)sub.textContent='Create a secure account to submit artworks. Your work is saved online and reviewed before publication.';
+    }
+    var nav=document.querySelector('#dashNav'),sellButton=document.querySelector('.sellbtn');
+    if(nav){nav.hidden=!sbProfile;if(sbProfile)nav.textContent=sbProfile.name+' · Dashboard';}
+    if(sellButton&&sbProfile)sellButton.textContent='Sell / '+sbProfile.name;
+  };
+  var sbOriginalAdmin=admin;
+  admin=function(){
+    if(!sbUser||!sbAdmin){
+      var el=document.querySelector('#admin');if(!el)return;
+      el.innerHTML='<h2>Administrator sign in</h2><p class="sub">Use your Supabase account. Only users listed in the app_admins table can administer this site.</p><form id="sbAdminLogin" class="pf" style="max-width:380px"><label>Email<input name="email" type="email" required autocomplete="email"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><button class="btn dark" type="submit">Sign in securely</button></form>'+(sbUser&&!sbAdmin?'<p class="note">This account does not have administrator permissions.</p>':'');
+      return;
+    }
+    sessionStorage.setItem('zadm','1');sbOriginalAdmin();
+  };
+  var sbOldUpdateIdentity=updateIdentity;
+  updateIdentity=function(){
+    sbOldUpdateIdentity();
+    var bar=document.querySelector('.bar');
+    if(bar&&sbUser&&!document.querySelector('#sbSignOut')){var b=document.createElement('button');b.type='button';b.id='sbSignOut';b.className='linkbtn';b.textContent='Sign out';bar.appendChild(b);}
+    if(!sbUser){var b2=document.querySelector('#sbSignOut');if(b2)b2.remove();}
+  };
+  async function sbUpload(bucket,file,userId){
+    if(!file||!file.name)return null;
+    var ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+    var path=userId+'/'+crypto.randomUUID()+'.'+ext;
+    var up=await sb.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+    if(up.error)throw up.error;return path;
+  }
+  async function sbCreateProfileFromPending(){
+    if(!sbUser||sbProfile)return sbProfile;
+    var raw=localStorage.getItem('zartz_pending_profile');if(!raw)return null;
+    var d=JSON.parse(raw),bookletPath=null;
+    if(d.bookletData){
+      var bytes=Uint8Array.from(atob(d.bookletData.split(',')[1]||''),function(c){return c.charCodeAt(0)});
+      bookletPath=await sbUpload('profile-booklets',new File([new Blob([bytes],{type:'application/pdf'})],d.bookletName||'booklet.pdf',{type:'application/pdf'}),sbUser.id);
+    }
+    var row={id:sbUser.id,role:d.type,display_name:d.name,email:sbUser.email,country:d.country,website:d.site||'',bio:d.bio||'',booklet_path:bookletPath,links:d.links||[]};
+    var saved=await sb.from('profiles').upsert(row).select('*').single();if(saved.error)throw saved.error;
+    localStorage.removeItem('zartz_pending_profile');sbProfile=profileFromRow(saved.data);return sbProfile;
+  }
+  document.addEventListener('submit',async function(e){
+    var f=e.target;if(!f||!['sp','sa','supabaseLogin','sbAdminLogin','payform','af'].includes(f.id))return;
+    if(f.id==='af'&&(!sbUser||!sbAdmin))return;
+    e.preventDefault();e.stopImmediatePropagation();if(sbBusy)return;sbBusy=true;
+    var button=f.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    try{
+      if(f.id==='sp'){
+        var d=new FormData(f),draft={type:String(d.get('type')),name:String(d.get('name')).trim(),country:String(d.get('country')).trim(),site:String(d.get('site')||''),bio:String(d.get('bio')||''),links:String(d.get('links')||'').split(/\n+/).filter(Boolean).map(function(url){return{url:url,label:url}}),bookletName:'',bookletData:''};
+        var pdf=d.get('booklet');if(pdf&&pdf.size){if(pdf.type!=='application/pdf')throw new Error('Digital booklet must be a PDF.');if(pdf.size>4*1024*1024)throw new Error('For signup, the optional PDF must be 4 MB or smaller. You can upload a larger PDF after signing in.');draft.bookletName=pdf.name;draft.bookletData=await new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(r.result)};r.onerror=reject;r.readAsDataURL(pdf)});}
+        localStorage.setItem('zartz_pending_profile',JSON.stringify(draft));
+        var result=await sb.auth.signUp({email:String(d.get('email')).trim(),password:String(d.get('password')),options:{data:{display_name:draft.name}}});
+        if(result.error)throw result.error;sbUser=result.data.user;
+        if(result.data.session){await sbCreateProfileFromPending();await sbRefresh();location.hash='#dashboard';}
+        else sbNotice('Account created. Confirm your email, then sign in below to finish creating your seller profile.');
+      }else if(f.id==='supabaseLogin'||f.id==='sbAdminLogin'){
+        var fd=new FormData(f),login=await sb.auth.signInWithPassword({email:String(fd.get('email')).trim(),password:String(fd.get('password'))});
+        if(login.error)throw login.error;sbUser=login.data.user;await sbCreateProfileFromPending();
+        var pr=await sb.from('profiles').select('*').eq('id',sbUser.id).maybeSingle();if(pr.error)throw pr.error;sbProfile=pr.data?profileFromRow(pr.data):null;
+        var ad=await sb.from('app_admins').select('user_id').eq('user_id',sbUser.id).maybeSingle();if(ad.error)throw ad.error;sbAdmin=!!(ad.data&&ad.data.user_id);
+        if(f.id==='sbAdminLogin'&&!sbAdmin){await sb.auth.signOut();sbUser=null;sbProfile=null;throw new Error('This account is not an administrator. Add its user ID to app_admins to grant access.');}
+        await sbRefresh();if(f.id==='sbAdminLogin')location.hash='#admin';else location.hash=sbProfile?'#dashboard':'#sell';
+      }else if(f.id==='sa'){
+        if(!sbUser||!sbProfile)throw new Error('Sign in and create your seller profile before submitting artwork.');
+        var fd2=new FormData(f),file=fd2.get('img'),path=null;
+        if(file&&file.size){if(!/^image\/(jpeg|png|webp|avif)$/.test(file.type))throw new Error('Artwork image must be JPEG, PNG, WebP or AVIF.');if(file.size>10*1024*1024)throw new Error('Artwork image must be 10 MB or smaller.');path=await sbUpload('artwork-images',file,sbUser.id);}
+        var row={seller_id:sbUser.id,title:String(fd2.get('t')||'').trim(),artist_name:sbProfile.type==='artist'?sbProfile.name:String(fd2.get('originalArtist')||'').trim(),original_artist_name:sbProfile.type==='artist'?sbProfile.name:String(fd2.get('originalArtist')||'').trim(),original_artist_url:String(fd2.get('originalArtistLink')||''),description:String(fd2.get('d')||''),medium:String(fd2.get('m')||fd2.get('cat')||'Other'),year:Number(fd2.get('y')||new Date().getFullYear()),dimensions:String(fd2.get('sz')||''),price:Number(fd2.get('p')||0),currency:'GHS',image_path:path,art_style:['circles','bars','waves','grid'][Math.floor(Math.random()*4)],status:'pending'};
+        if(!row.title||!Number.isFinite(row.price)||row.price<=0)throw new Error('Enter an artwork title and a price greater than zero.');
+        var ins=await sb.from('artworks').insert(row).select('*').single();if(ins.error)throw ins.error;
+        await sbRefresh();location.hash='#dashboard';sbNotice('Artwork submitted for administrator review.');
+      }else if(f.id==='payform'){
+        var email=document.querySelector('#payemail').value.trim(),items=db.cart.map(wk).filter(Boolean);
+        if(!items.length)throw new Error('Your cart is empty.');
+        if(items.some(function(w){return !w.supabaseId;}))throw new Error('This item is demo content, not a database-backed listing. Add published catalogue artworks to your cart.');
+        var session=await sb.auth.getSession(),token=session.data.session&&session.data.session.access_token;
+        var res=await fetch('/api/paystack/initialize',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},token?{Authorization:'Bearer '+token}:{}),body:JSON.stringify({email:email,currency:'GHS',items:items.map(function(w){return{id:w.supabaseId,quantity:1};})})});
+        var data=await res.json();if(!res.ok||!data.success)throw new Error(data.message||'Unable to initialize payment.');
+        localStorage.setItem('zartz_pending_order',JSON.stringify({reference:data.reference,items:items.map(function(w){return w.id;})}));
+        document.querySelector('#paydlg').close();location.href=data.authorization_url;
+      }else if(f.id==='af'){
+        var sch=({works:SW,posts:SP,exs:SX,slides:SS,set:SSET})[tab]||[],values=read(f,sch);
+        if(tab==='works'){
+          var item=edit!=null?db.works.filter(function(x){return String(x.id)===String(edit)})[0]:null;if(!item||!item.supabaseId)throw new Error('Only database-backed artwork can be edited.');
+          var up=await sb.from('artworks').update({title:values.t,artist_name:values.a,medium:values.m||values.category,year:Number(values.y)||null,dimensions:values.sz,price:Number(values.p)||0,description:values.d||'',status:values.st==='live'?'approved':values.st}).eq('id',item.supabaseId);if(up.error)throw up.error;
+        }else if(tab==='slides'){
+          var slide=edit!=null?db.slides.filter(function(x){return String(x.id)===String(edit)})[0]:null;
+          var rowS={headline:values.t,subtitle:values.s||'',button_label:values.b,button_target:values.l,art_style:values.k,background_color:values.c1,button_color:values.c2,art_color:values.c3,sort_order:slide?db.slides.indexOf(slide):db.slides.length,is_active:true};
+          var savedS=slide&&slide.supabaseId?await sb.from('homepage_slides').update(rowS).eq('id',slide.supabaseId):await sb.from('homepage_slides').insert(rowS);if(savedS.error)throw savedS.error;
+        }else if(tab==='posts'){
+          var post=edit!=null?db.posts.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowP={title:values.t,author_name:values.c,category:values.g,summary:values.s||'',body:values.b||'',status:'published',published_at:values.dt||today()};
+          var savedP=post&&post.supabaseId?await sb.from('journal_posts').update(rowP).eq('id',post.supabaseId):await sb.from('journal_posts').insert(rowP);if(savedP.error)throw savedP.error;
+        }else if(tab==='exs'){
+          var ex=edit!=null?db.exs.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowE={title:values.t,museum_name:values.m,city:values.c,curator_name:values.cu,starts_on:values.s||null,ends_on:values.e||null,description:values.description||'',status:'published'};
+          var savedE=ex&&ex.supabaseId?await sb.from('exhibitions').update(rowE).eq('id',ex.supabaseId):await sb.from('exhibitions').insert(rowE);if(savedE.error)throw savedE.error;
+        }else throw new Error('This settings section is not yet stored in Supabase. Artwork, journal, exhibitions and slides are connected.');
+        edit=null;await sbRefresh();admin();
+      }
+    }catch(err){console.error(err);sbNotice(err.message||'Request failed. Please try again.',location.hash==='#admin'?document.querySelector('#admin'):document.querySelector('#sell'));}
+    finally{sbBusy=false;if(button)button.disabled=false;}
+  },true);
+  document.addEventListener('click',async function(e){
+    var b=e.target.closest('#switchSeller,#sbSignOut,[data-reviewApprove],[data-reviewReject],[data-ap],[data-del],[data-out]');if(!b)return;
+    if(b.id==='switchSeller'||b.id==='sbSignOut'){e.preventDefault();e.stopImmediatePropagation();await sb.auth.signOut();sbUser=null;sbProfile=null;sbAdmin=false;db.currentProfileId=null;sessionStorage.removeItem('zadm');await sbRefresh();location.hash='#sell';return;}
+    if(b.dataset.reviewApprove||b.dataset.ap){
+      e.preventDefault();e.stopImmediatePropagation();
+      try{if(!sbAdmin)throw new Error('Administrator access required.');var w=db.works.filter(function(x){return String(x.id)===String(b.dataset.reviewApprove||b.dataset.ap)})[0];if(!w||!w.supabaseId)throw new Error('Artwork record not found.');var u=await sb.from('artworks').update({status:'approved',reviewed_at:new Date().toISOString(),review_note:'Approved by administrator'}).eq('id',w.supabaseId);if(u.error)throw u.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
+    }else if(b.dataset.reviewReject){
+      e.preventDefault();e.stopImmediatePropagation();
+      try{if(!sbAdmin)throw new Error('Administrator access required.');var w2=db.works.filter(function(x){return String(x.id)===String(b.dataset.reviewReject)})[0];if(!w2||!w2.supabaseId)throw new Error('Artwork record not found.');var note=prompt('Reason for rejection (optional):','Please update the artwork details and resubmit.');var u2=await sb.from('artworks').update({status:'rejected',reviewed_at:new Date().toISOString(),review_note:note||'Submission was not approved.'}).eq('id',w2.supabaseId);if(u2.error)throw u2.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
+    }else if(b.dataset.del){
+      e.preventDefault();e.stopImmediatePropagation();
+      try{if(!sbAdmin)throw new Error('Administrator access required.');if(!confirm('Delete this record from Supabase?'))return;var table=({works:'artworks',posts:'journal_posts',exs:'exhibitions',slides:'homepage_slides'})[tab],list=db[tab]||[],it=list.filter(function(x){return String(x.id)===String(b.dataset.del)})[0];if(!table||!it||!it.supabaseId)throw new Error('Database record not found.');var del=await sb.from(table).delete().eq('id',it.supabaseId);if(del.error)throw del.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
+    }else if(b.dataset.out!==undefined){
+      e.preventDefault();e.stopImmediatePropagation();await sb.auth.signOut();sbUser=null;sbProfile=null;sbAdmin=false;sessionStorage.removeItem('zadm');admin();
+    }
+  },true);
+  sb.auth.onAuthStateChange(function(event,session){sbUser=session&&session.user||null;if(event==='SIGNED_OUT'){sbProfile=null;sbAdmin=false;sessionStorage.removeItem('zadm');}});
+  sbHydrate().then(function(){refresh(true);updateIdentity();}).catch(function(err){console.error('Supabase initial load failed',err);sbNotice('Supabase could not load data. Verify Data API grants, the public_profiles view and RLS policies.');});
+
   updateIdentity();
   save();
 })();
