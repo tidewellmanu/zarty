@@ -501,8 +501,8 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     else if(tab==='exs'){
       h+=crud('exs','Exhibitions',SX,function(x){return[x.t+' at '+x.m,(x.c||'')+' · '+fmt(x.s)+' to '+fmt(x.e)]});
     } else if(tab==='slides'){
+      h+='<div class="note"><b>Homepage slider manager</b><p>Each slide starts with a selected generated art style. Use <b>Add new slide</b> to create one, or <b>Edit</b> beside a slide to change it. To replace generated artwork, choose a JPG or PNG file in the custom image field and wait for the preview before saving.</p><button class="btn dark" type="button" data-add-slide>Add new slide</button></div>';
       h+=crud('slides','Homepage art-style slides',SS,function(x){return[x.t,x.b+' → '+x.l+(x.img?' · Custom image':' · Default '+(x.k||'circles')+' style')]});
-      h+='<p class="note">The default generated art style is selected for each slide. Upload a custom image only when you want to replace that slide artwork. New slides start with the default style and colours.</p>';
     } else if(tab==='posts')h+=crud('posts','Curators’ Journal',SP,function(p){return[p.t,fmt(p.dt)+' · '+p.c]});
     else if(tab==='rev')h+='<h3>Reviews ('+db.rev.length+')</h3>'+db.rev.map(function(r,i){var w=wk(r.w);return '<div class="row2"><div><b>'+esc(r.n)+'</b> <span class="st">'+stars(r.r)+'</span> on '+esc(w?w.t:'removed')+'<br>'+esc(r.t)+'</div><button class="btn sm" data-rd="'+i+'">Delete</button></div>'}).join('');
     else if(tab==='set')h+='<h3>Site settings</h3><form id="af" class="af">'+SSET.map(function(f){return fld(f,db.set[f.k])}).join('')+'<div><button class="btn dark">Save settings</button></div></form><h3>Feedback rating system</h3><div class="note">Starter: 1–5 / 6–15 / 16–50 / 51–150 / 151+ likes. Growing: 1–25 / 26–100 / 101–500 / 501–2,500 / 2,501+. Viral: 1–250 / 251–1,000 / 1,001–5,000 / 5,001–25,000 / 25,001+.</div><form id="ratingSettings" class="pf"><label>Traffic scale<select name="scale"><option value="auto">Automatic</option><option value="starter">Starter</option><option value="growing">Growing</option><option value="viral">Viral</option></select></label><label>Strategy<select name="strategy"><option value="threshold">Like thresholds</option><option value="benchmark">Top-liked benchmark</option></select></label><button class="btn dark">Save rating settings</button></form>';
@@ -516,6 +516,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   /* Delegate enhanced admin actions alongside the original handler. */
   $('#admin').addEventListener('click',function(e){
     var d=e.target.dataset;
+    if(d.addSlide!==undefined){tab='slides';edit=null;admin();var form=document.querySelector('#af');if(form){form.scrollIntoView({behavior:'smooth',block:'start'});var title=form.querySelector('[name="t"]');if(title)title.focus();}return}
     if(d.newtab){tab=d.newtab;edit=null;admin();return}
     if(d.out!==undefined){sessionStorage.removeItem('zadm');admin();return}
     if(d.reviewApprove){var w=wk(+d.reviewApprove);if(w){w.st='live';w.reviewedAt=new Date().toISOString();w.reviewNote='Approved by admin';save();track('artwork_approved',{workId:w.id});admin();renderAll()}}
