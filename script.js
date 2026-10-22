@@ -359,7 +359,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   }
   function artworkCard(w){
     var n=revs(w.id).length,p=profileForWork(w);
-    return '<article class="art" tabindex="0" data-id="'+w.id+'"><button class="art-open" data-id="'+w.id+'"><div class="im">'+art(w)+'</div><h3>'+esc(w.t)+'</h3><p>'+sellerLabel(w)+'</p><p>'+esc(w.m)+' · '+esc(w.y)+'</p><p><span class="st">'+(n?stars(avg(w.id)):'No reviews yet')+'</span> '+(n?'('+n+')':'')+'</p><p class="pr">'+money(w.p)+'</p></button></article>';
+    return '<article class="art" tabindex="0" data-id="'+w.id+'"><button class="art-open" data-id="'+w.id+'"><div class="im">'+art(w)+'</div><h3>'+esc(w.t)+'</h3><p>'+sellerLabel(w)+'</p><p>'+esc(w.m)+' · '+esc(w.y)+'</p><p><span class="st">'+(n?stars(avg(w.id)):'No reviews yet')+'</span> '+(n?'('+n+')':'')+'</p><p class="pr">'+money(w.p)+'</p></button><button class="btn sm rate-art" type="button" data-rate="'+w.id+'">Rate artwork</button></article>';
   }
   function renderFeatured(){
     var oldGrid=$('#grid');if(!oldGrid)return;
@@ -526,8 +526,8 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     if(d.rd){db.rev.splice(+d.rd,1);save();admin()}
   });
   /* Artwork page interactions and filters. */
-  $('#agrid').onclick=function(e){var p=e.target.closest('[data-profile]');if(p){e.preventDefault();goProfile(p.dataset.profile);return}var b=e.target.closest('.art-open');if(b)openW(+b.dataset.id,'r')};
-  $('#grid').onclick=function(e){var p=e.target.closest('[data-profile]');if(p){e.preventDefault();goProfile(p.dataset.profile);return}var b=e.target.closest('.art-open');if(b)openW(+b.dataset.id,'r')};
+  $('#agrid').onclick=function(e){var p=e.target.closest('[data-profile]');if(p){e.preventDefault();goProfile(p.dataset.profile);return}var rate=e.target.closest('[data-rate]');if(rate){e.preventDefault();openW(+rate.dataset.rate,'r');return}var b=e.target.closest('.art-open');if(b)openW(+b.dataset.id,'r')};
+  $('#grid').onclick=function(e){var p=e.target.closest('[data-profile]');if(p){e.preventDefault();goProfile(p.dataset.profile);return}var rate=e.target.closest('[data-rate]');if(rate){e.preventDefault();openW(+rate.dataset.rate,'r');return}var b=e.target.closest('.art-open');if(b)openW(+b.dataset.id,'r')};
   if($('#aq'))$('#aq').oninput=function(){track('search',{query:this.value});renderAll()};
   if($('#arole'))$('#arole').onchange=renderAll;if($('#asort'))$('#asort').onchange=renderAll;
   if($('#achips'))$('#achips').onclick=function(e){if(e.target.dataset.med){window.allMed=e.target.dataset.med;renderAll()}};
