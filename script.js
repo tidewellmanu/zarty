@@ -697,7 +697,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
       }else if(f.id==='journalSubmit'){
         if(!sbUser||!sbProfile)throw new Error('Sign in before submitting a journal post.');
         var jd=new FormData(f),cover=jd.get('cover'),coverPath=null;
-        if(cover&&cover.size){if(!/^image\\/(jpeg|png|webp|avif)$/.test(cover.type))throw new Error('Cover image must be JPEG, PNG, WebP or AVIF.');if(cover.size>10*1024*1024)throw new Error('Cover image must be 10 MB or smaller.');coverPath=await sbUpload('artwork-images',cover,sbUser.id);}
+        if(cover&&cover.size){if(!/^image\/(jpeg|png|webp|avif)$/.test(cover.type))throw new Error('Cover image must be JPEG, PNG, WebP or AVIF.');if(cover.size>10*1024*1024)throw new Error('Cover image must be 10 MB or smaller.');coverPath=await sbUpload('artwork-images',cover,sbUser.id);}
         var postRow={author_id:sbUser.id,title:String(jd.get('title')||'').trim(),author_name:sbProfile.name,category:String(jd.get('category')||'Essay'),summary:String(jd.get('summary')||'').trim(),body:String(jd.get('body')||'').trim(),cover_image_path:coverPath,status:'pending',published_at:null};
         if(!postRow.title||!postRow.summary||!postRow.body)throw new Error('Complete the title, summary and full article before submitting.');
         var posted=await sb.from('journal_posts').insert(postRow).select('*').single();if(posted.error)throw posted.error;
@@ -794,7 +794,6 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
 
   updateIdentity();
   save();
-})();
 
 /* ---------- payment return ---------- */
 async function verifyReturnedPayment(){
@@ -815,4 +814,6 @@ async function verifyReturnedPayment(){
 /* ---------- start ---------- */
 $('#grid').addEventListener('keydown',function(){});
 refresh(true);route();verifyReturnedPayment();
+})();
+
 })();
