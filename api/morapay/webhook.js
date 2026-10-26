@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
     if (!valid) return res.status(401).json({ received: false, message: 'Invalid webhook signature.' });
 
     const data = payload.data || payload.payment || payload;
-    const eventName = String(payload.type || payload.event || payload.name || data.status || '').toLowerCase();
+    const eventName = (String(payload.type || payload.event || payload.name || '') + ' ' + String(data.status || '')).toLowerCase();
     const orderId = String((data.metadata && (data.metadata.order_id || data.metadata.orderId)) || data.order_id || data.orderId || '').trim();
     const reference = String(data.linkId || data.paymentLinkId || data.publicCode || data.reference || data.id || '').trim();
     const sb = createClient(process.env.SUPABASE_URL || 'https://lvxszuxfiezwwiuqzxxd.supabase.co', sbKey, { auth: { persistSession: false, autoRefreshToken: false } });
