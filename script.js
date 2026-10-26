@@ -701,10 +701,10 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
         if(!items.length)throw new Error('Your cart is empty.');
         if(items.some(function(w){return !w.supabaseId;}))throw new Error('This item is demo content, not a database-backed listing. Add published catalogue artworks to your cart.');
         var session=await sb.auth.getSession(),token=session.data.session&&session.data.session.access_token;
-        var res=await fetch('/api/paystack/initialize',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},token?{Authorization:'Bearer '+token}:{}),body:JSON.stringify({email:email,currency:'GHS',items:items.map(function(w){return{id:w.supabaseId,quantity:1};})})});
-        var data=await res.json();if(!res.ok||!data.success)throw new Error(data.message||'Unable to initialize payment.');
-        localStorage.setItem('zartz_pending_order',JSON.stringify({reference:data.reference,items:items.map(function(w){return w.id;})}));
-        document.querySelector('#paydlg').close();location.href=data.authorization_url;
+        var res=await fetch('/api/morapay/initialize',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},token?{Authorization:'Bearer '+token}:{}),body:JSON.stringify({email:email,currency:'GHS',items:items.map(function(w){return{id:w.supabaseId,quantity:1};})})});
+        var data=await res.json();if(!res.ok||!data.success)throw new Error(data.message||'Unable to initialize Morapay checkout.');
+        localStorage.setItem('zartz_pending_order',JSON.stringify({order_id:data.order_id,items:items.map(function(w){return w.id;})}));
+        document.querySelector('#paydlg').close();location.href=data.checkout_url;
       }else if(f.id==='af'){
         var sch=({works:SW,posts:SP,exs:SX,slides:SS,set:SSET})[tab]||[],values=read(f,sch);
         /* Read the selected file directly as a fallback: never silently save a slide without its chosen image just because the preview field did not populate. */
@@ -790,22 +790,17 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
 /* ---------- payment return ---------- */
 async function verifyReturnedPayment(){
   var p=new URLSearchParams(location.search),ref=p.get('reference')||p.get('trxref');
-  if(!ref)return;
+  if(!ref&&!p.get('order_id'))return;
   var msg=$('#msg');
-  if(msg)msg.textContent='Verifying Paystack payment…';
+  if(msg)msg.textContent='Checking Morapay payment status…';
+  var pending=JSON.parse(localStorage.getItem('zartz_pending_order')||'{}');
+  var orderId=p.get('order_id')||pending.order_id;
+  if(!orderId){if(msg)msg.textContent='Checkout returned to ZARTZ. Payment confirmation is handled securely by Morapay.';return;}
   try{
-    var res=await fetch('/api/paystack/verify?reference='+encodeURIComponent(ref));
-    var data=await res.json();
-    if(data.success&&data.status==='success'){
-      db.cart=[];save();cart();
-      if(msg)msg.textContent='Payment successful. Reference: '+ref;
-      history.replaceState({},document.title,location.pathname+location.hash);
-    }else if(msg){
-      msg.textContent='Payment was not completed. Reference: '+ref;
-    }
-  }catch(e){
-    if(msg)msg.textContent='Payment verification could not be completed yet. Reference: '+ref;
-  }
+    var res=await fetch('/api/morapay/status?order_id='+encodeURIComponent(orderId));var data=await res.json();
+    if(data.success&&data.payment_status==='success'){db.cart=[];save();cart();localStorage.removeItem('zartz_pending_order');if(msg)msg.textContent='Payment confirmed. Thank you for your purchase.';history.replaceState({},document.title,location.pathname+location.hash);}
+    else if(msg)msg.textContent=data.payment_status==='failed'?'Payment failed. You can try checkout again.':'Payment is awaiting confirmation from Morapay. Please wait for confirmation before paying again.';
+  }catch(e){if(msg)msg.textContent='Morapay returned you to ZARTZ. We will confirm payment after the signed payment notification arrives.';}
 }
 
 /* ---------- start ---------- */
