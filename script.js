@@ -794,6 +794,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
 
   updateIdentity();
   save();
+})();
 
 /* ---------- payment return ---------- */
 async function verifyReturnedPayment(){
@@ -814,6 +815,4 @@ async function verifyReturnedPayment(){
 /* ---------- start ---------- */
 $('#grid').addEventListener('keydown',function(){});
 refresh(true);route();verifyReturnedPayment();
-})();
-
 })();
