@@ -402,9 +402,10 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     $('#profile').onclick=function(e){var b=e.target.closest('[data-id]');if(b&&b.classList.contains('art-open'))openW(+b.dataset.id,'r');var j=e.target.closest('[data-post]');if(j)location.hash='journal-post?id='+j.dataset.post};
   }
   function renderJournal(){
-    var cs=['All','Essay','Practice','Studio visit','Guide','News'].concat(db.posts.map(function(p){return p.g}).filter(function(x,i,a){return a.indexOf(x)===i&&['All','Essay','Practice','Studio visit','Guide','News'].indexOf(x)<0}));
+    var visiblePosts=db.posts.filter(function(p){return !p.supabaseId||p.st==='published'});
+    var cs=['All','Essay','Practice','Studio visit','Guide','News'].concat(visiblePosts.map(function(p){return p.g}).filter(function(x,i,a){return a.indexOf(x)===i&&['All','Essay','Practice','Studio visit','Guide','News'].indexOf(x)<0}));
     $('#jchips').innerHTML=cs.map(function(x){return '<button class="chip" aria-pressed="'+(x===cur)+'">'+esc(x)+'</button>'}).join('');
-    var l=db.posts.filter(function(p){return cur==='All'||p.g===cur}).sort(function(a,b){return a.dt<b.dt?1:-1});
+    var l=visiblePosts.filter(function(p){return cur==='All'||p.g===cur}).sort(function(a,b){return a.dt<b.dt?1:-1});
     $('#posts').innerHTML=l.length?l.map(function(p){return '<div class="journal-card"><div class="meta">'+esc(p.g)+' · '+fmt(p.dt)+' · by <a href="#profile?id='+encodeURIComponent((profByName(p.c)||{}).id||'')+'">'+esc(p.c)+'</a></div><h3>'+esc(p.t)+'</h3><p>'+esc(p.s)+'</p><button class="btn sm" data-post="'+p.id+'">Read entire article →</button></div>'}).join(''):'<p class="mut">No posts yet.</p>';
     $('#jchips').onclick=function(e){var b=e.target.closest('.chip');if(!b)return;cur=b.textContent;renderJournal()};$('#posts').onclick=function(e){var b=e.target.closest('[data-post]');if(b){track('journal_open',{postId:+b.dataset.post});location.hash='journal-post?id='+b.dataset.post}};
   }
