@@ -666,6 +666,11 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     e.preventDefault();e.stopImmediatePropagation();if(sbBusy)return;sbBusy=true;
     var button=f.querySelector('button[type="submit"]');if(button)button.disabled=true;
     try{
+      if(f.id==='af'&&(tab==='works'||tab==='posts')&&!sbProfile){
+        var fallbackName=String((sbUser.user_metadata&&sbUser.user_metadata.display_name)||sbUser.email||'ZARTZ Administrator').split('@')[0];
+        var fallbackProfile=await sb.from('profiles').upsert({id:sbUser.id,role:'artist',display_name:fallbackName,email:sbUser.email||'',country:'',website:'',bio:''}).select('*').single();
+        if(fallbackProfile.error)throw fallbackProfile.error;sbProfile=profileFromRow(fallbackProfile.data);
+      }
       if(f.id==='sp'){
         var d=new FormData(f),draft={type:String(d.get('type')),name:String(d.get('name')).trim(),country:String(d.get('country')).trim(),site:String(d.get('site')||''),bio:String(d.get('bio')||''),links:String(d.get('links')||'').split(/\n+/).filter(Boolean).map(function(url){return{url:url,label:url}}),bookletName:'',bookletData:''};
         var pdf=d.get('booklet');if(pdf&&pdf.size){if(pdf.type!=='application/pdf')throw new Error('Digital booklet must be a PDF.');if(pdf.size>4*1024*1024)throw new Error('For signup, the optional PDF must be 4 MB or smaller. You can upload a larger PDF after signing in.');draft.bookletName=pdf.name;draft.bookletData=await new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(r.result)};r.onerror=reject;r.readAsDataURL(pdf)});}
