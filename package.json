@@ -1,0 +1,10 @@
+{
+  "name": "zartz-art-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZARTZ marketplace serverless payment endpoints",
+  "dependencies": {
+    "@morapay/sdk": "0.1.0",
+    "@supabase/supabase-js": "2.57.0"
+  }
+}
