@@ -258,7 +258,7 @@ var SSET=[{k:'name',l:'Company name',r:1},{k:'tag',l:'Tagline'},{k:'foot',l:'Foo
 var tab='works',edit=null,adminErr='';
 function refresh(keepAdmin){apply();slider();chips();grid();jchips();posts();renderExhibitions();cart();if(!keepAdmin&&location.hash==='#admin')admin()}
 function crud(key,title,sch,row,fixed){var L=db[key],it=edit!=null?L.filter(function(x){return String(x.id)===String(edit)})[0]:null;
-  var h='<h3>'+title+' ('+L.length+')</h3><div>'+L.map(function(x){var r=row(x);return '<div class="row2"><div><b>'+esc(r[0])+'</b>'+(x.st==='pending'?'<span class="pill">Pending</span>':'')+'<br><span class="mut">'+esc(r[1])+'</span></div><div class="acts">'+(x.st==='pending'?(key==='posts'?'<button class="btn dark" data-post-approve="'+x.id+'">Approve &amp; publish</button>':'<button class="btn dark" data-ap="'+x.id+'">Approve</button>'):'')+'<button class="btn" data-ed="'+x.id+'">Edit</button>'+(fixed?'':'<button class="btn" data-del="'+x.id+'">Delete</button>')+'</div></div>'}).join('')+'</div>';
+  var h='<h3>'+title+' ('+L.length+')</h3><div>'+L.map(function(x){var r=row(x);return '<div class="row2"><div><b>'+esc(r[0])+'</b>'+(x.st==='pending'?'<span class="pill">Pending</span>':'')+'<br><span class="mut">'+esc(r[1])+'</span></div><div class="acts">'+(x.st==='pending'?(key==='posts'?'<button class="btn dark" data-post-approve="'+x.id+'">Approve &amp; publish</button><button class="btn" data-post-reject="'+x.id+'">Reject</button>':'<button class="btn dark" data-ap="'+x.id+'">Approve</button>'):'')+'<button class="btn" data-ed="'+x.id+'">Edit</button>'+(fixed?'':'<button class="btn" data-del="'+x.id+'">Delete</button>')+'</div></div>'}).join('')+'</div>';
   if(fixed&&!it)return h+'<p class="note">Choose Edit on a slide to change its text, button, link and colours.</p>';
   return h+'<h3>'+(it?'Edit':'Add new')+'</h3><form id="af" class="af">'+sch.map(function(f){return fld(f,it?it[f.k]:(f.k==='dt'?today():f.k==='st'?'live':f.k==='y'?2026:f.k==='k'?'circles':f.k==='c1'?'#f3efe6':f.k==='c2'?'#2438ff':f.k==='c3'?'#ff6a3d':f.d))}).join('')+'<div><button class="btn dark" type="submit">'+(it?'Save changes':'Add')+'</button>'+(it?' <button class="btn" type="button" data-cancel>Cancel</button>':'')+'</div></form>'}
 function admin(){var el=$('#admin');
@@ -762,7 +762,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     finally{sbBusy=false;if(button)button.disabled=false;}
   },true);
   document.addEventListener('click',async function(e){
-    var b=e.target.closest('#switchSeller,#sbSignOut,[data-reviewApprove],[data-reviewReject],[data-post-approve],[data-ap],[data-del],[data-out]');if(!b)return;
+    var b=e.target.closest('#switchSeller,#sbSignOut,[data-reviewApprove],[data-reviewReject],[data-post-approve],[data-post-reject],[data-ap],[data-del],[data-out]');if(!b)return;
     if(b.id==='switchSeller'||b.id==='sbSignOut'){e.preventDefault();e.stopImmediatePropagation();await sb.auth.signOut();sbUser=null;sbProfile=null;sbAdmin=false;db.currentProfileId=null;sessionStorage.removeItem('zadm');await sbRefresh();location.hash='#sell';return;}
     if(b.dataset.reviewApprove||b.dataset.ap){
       e.preventDefault();e.stopImmediatePropagation();
@@ -770,6 +770,9 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     }else if(b.dataset.postApprove){
       e.preventDefault();e.stopImmediatePropagation();
       try{if(!sbAdmin)throw new Error('Administrator access required.');var post=db.posts.filter(function(x){return String(x.id)===String(b.dataset.postApprove)})[0];if(!post||!post.supabaseId)throw new Error('Journal post record not found.');var pu=await sb.from('journal_posts').update({status:'published',published_at:new Date().toISOString()}).eq('id',post.supabaseId);if(pu.error)throw pu.error;tab='posts';await sbRefresh();admin();sbNotice('Journal post approved and published.',document.querySelector('#admin'));}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
+    }else if(b.dataset.postReject){
+      e.preventDefault();e.stopImmediatePropagation();
+      try{if(!sbAdmin)throw new Error('Administrator access required.');var rejectedPost=db.posts.filter(function(x){return String(x.id)===String(b.dataset.postReject)})[0];if(!rejectedPost||!rejectedPost.supabaseId)throw new Error('Journal post record not found.');var reason=prompt('Reason for rejection (optional):','Please revise your post and resubmit.');var prj=await sb.from('journal_posts').update({status:'rejected',published_at:null}).eq('id',rejectedPost.supabaseId);if(prj.error)throw prj.error;tab='posts';await sbRefresh();admin();sbNotice('Journal post rejected.'+(reason?' Reason: '+reason:''),document.querySelector('#admin'));}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
     }else if(b.dataset.reviewReject){
       e.preventDefault();e.stopImmediatePropagation();
       try{if(!sbAdmin)throw new Error('Administrator access required.');var w2=db.works.filter(function(x){return String(x.id)===String(b.dataset.reviewReject)})[0];if(!w2||!w2.supabaseId)throw new Error('Artwork record not found.');var note=prompt('Reason for rejection (optional):','Please update the artwork details and resubmit.');var u2=await sb.from('artworks').update({status:'rejected',reviewed_at:new Date().toISOString(),review_note:note||'Submission was not approved.'}).eq('id',w2.supabaseId);if(u2.error)throw u2.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
@@ -790,10 +793,10 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
 /* ---------- payment return ---------- */
 async function verifyReturnedPayment(){
   var p=new URLSearchParams(location.search),ref=p.get('reference')||p.get('trxref');
-  if(!ref&&!p.get('order_id'))return;
+  var pending=JSON.parse(localStorage.getItem('zartz_pending_order')||'{}');
+  if(!ref&&!p.get('order_id')&&!pending.order_id)return;
   var msg=$('#msg');
   if(msg)msg.textContent='Checking Morapay payment status…';
-  var pending=JSON.parse(localStorage.getItem('zartz_pending_order')||'{}');
   var orderId=p.get('order_id')||pending.order_id;
   if(!orderId){if(msg)msg.textContent='Checkout returned to ZARTZ. Payment confirmation is handled securely by Morapay.';return;}
   try{
