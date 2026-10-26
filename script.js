@@ -187,7 +187,7 @@ var cur='All';
 function jchips(){var cs=['All'].concat(db.posts.map(function(p){return p.c}).filter(function(c,i,a){return a.indexOf(c)===i}));if(cs.indexOf(cur)<0)cur='All';
   $('#jchips').innerHTML=cs.map(function(c){return '<button class="chip" aria-pressed="'+(c===cur)+'">'+esc(c)+'</button>'}).join('')}
 $('#jchips').onclick=function(e){if(!e.target.classList.contains('chip'))return;cur=e.target.textContent;jchips();posts()};
-function posts(){var l=db.posts.filter(function(p){return cur==='All'||p.c===cur}).sort(function(a,b){return a.dt<b.dt?1:-1});
+function posts(){var l=db.posts.filter(function(p){return (!p.supabaseId||p.st==='published')&&(cur==='All'||p.g===cur)}).sort(function(a,b){return a.dt<b.dt?1:-1});
   $('#posts').innerHTML=l.length?l.map(function(p){return '<details><summary><div class="meta">'+esc(p.g)+' · '+fmt(p.dt)+' · by '+esc(p.c)+'</div><h3>'+esc(p.t)+'</h3><p>'+esc(p.s)+'</p></summary><div class="body">'+esc(p.b)+'</div></details>'}).join(''):'<p class="mut">No posts yet.</p>'}
 
 /* ---------- exhibitions ---------- */
@@ -258,7 +258,7 @@ var SSET=[{k:'name',l:'Company name',r:1},{k:'tag',l:'Tagline'},{k:'foot',l:'Foo
 var tab='works',edit=null,adminErr='';
 function refresh(keepAdmin){apply();slider();chips();grid();jchips();posts();renderExhibitions();cart();if(!keepAdmin&&location.hash==='#admin')admin()}
 function crud(key,title,sch,row,fixed){var L=db[key],it=edit!=null?L.filter(function(x){return String(x.id)===String(edit)})[0]:null;
-  var h='<h3>'+title+' ('+L.length+')</h3><div>'+L.map(function(x){var r=row(x);return '<div class="row2"><div><b>'+esc(r[0])+'</b>'+(x.st==='pending'?'<span class="pill">Pending</span>':'')+'<br><span class="mut">'+esc(r[1])+'</span></div><div class="acts">'+(x.st==='pending'?'<button class="btn dark" data-ap="'+x.id+'">Approve</button>':'')+'<button class="btn" data-ed="'+x.id+'">Edit</button>'+(fixed?'':'<button class="btn" data-del="'+x.id+'">Delete</button>')+'</div></div>'}).join('')+'</div>';
+  var h='<h3>'+title+' ('+L.length+')</h3><div>'+L.map(function(x){var r=row(x);return '<div class="row2"><div><b>'+esc(r[0])+'</b>'+(x.st==='pending'?'<span class="pill">Pending</span>':'')+'<br><span class="mut">'+esc(r[1])+'</span></div><div class="acts">'+(x.st==='pending'?(key==='posts'?'<button class="btn dark" data-post-approve="'+x.id+'">Approve &amp; publish</button>':'<button class="btn dark" data-ap="'+x.id+'">Approve</button>'):'')+'<button class="btn" data-ed="'+x.id+'">Edit</button>'+(fixed?'':'<button class="btn" data-del="'+x.id+'">Delete</button>')+'</div></div>'}).join('')+'</div>';
   if(fixed&&!it)return h+'<p class="note">Choose Edit on a slide to change its text, button, link and colours.</p>';
   return h+'<h3>'+(it?'Edit':'Add new')+'</h3><form id="af" class="af">'+sch.map(function(f){return fld(f,it?it[f.k]:(f.k==='dt'?today():f.k==='st'?'live':f.k==='y'?2026:f.k==='k'?'circles':f.k==='c1'?'#f3efe6':f.k==='c2'?'#2438ff':f.k==='c3'?'#ff6a3d':f.d))}).join('')+'<div><button class="btn dark" type="submit">'+(it?'Save changes':'Add')+'</button>'+(it?' <button class="btn" type="button" data-cancel>Cancel</button>':'')+'</div></form>'}
 function admin(){var el=$('#admin');
@@ -386,7 +386,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     var out='';
     db.profiles.forEach(function(p){
       var works=published().filter(function(w){return w.sellerId===p.id||(!w.sellerId&&w.a===p.name)});
-      var blogs=db.posts.filter(function(x){return x.c===p.name});
+      var blogs=db.posts.filter(function(x){return x.c===p.name&&(!x.supabaseId||x.st==='published')});
       var role=p.type==='artist'?'Artist':p.type==='curator'?'Curator':'Museum';
       out+='<div class="profile-card"><span class="badge">'+role+'</span><h3>'+esc(p.name)+'</h3><p class="mut">'+esc(p.country||'')+'</p><p>'+esc(p.bio||'Profile biography coming soon.')+'</p><p><b>'+works.length+'</b> published artwork'+(works.length===1?'':'s')+' · <b>'+blogs.length+'</b> journal post'+(blogs.length===1?'':'s')+'</p></div>';
     });
@@ -396,7 +396,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     var id=new URLSearchParams(location.hash.split('?')[1]||'').get('id'),p=prof(id);
     if(!p){$('#profile').innerHTML='<h2>Profile not found</h2><a class="btn" href="#artworks">Back to artworks</a>';return}
     track('profile_view',{profileId:p.id});
-    var works=published().filter(function(w){return w.sellerId===p.id||(!w.sellerId&&w.a===p.name)}),blogs=db.posts.filter(function(x){return x.c===p.name});
+    var works=published().filter(function(w){return w.sellerId===p.id||(!w.sellerId&&w.a===p.name)}),blogs=db.posts.filter(function(x){return x.c===p.name&&(!x.supabaseId||x.st==='published')});
     var role=p.type==='artist'?'Artist':p.type==='curator'?'Curator':'Museum';
     $('#profile').innerHTML='<a class="btn sm" href="#artworks">← Back to artworks</a><span class="badge" style="display:block;width:max-content;margin-top:24px">'+role+'</span><h2>'+esc(p.name)+'</h2><p class="sub">'+esc(p.country||'')+'</p><div class="profile-booklet"><h3>Biography</h3><p>'+esc(p.bio||'')+'</p>'+(p.bookletUrl?'<p><a class="btn sm" href="'+esc(p.bookletUrl)+'" target="_blank" rel="noopener">View digital booklet (PDF)</a></p>':'')+(p.site?'<p><a href="'+esc(p.site)+'" target="_blank" rel="noopener">Website / social profile</a></p>':'')+(p.links&&p.links.length?'<div class="profile-links">'+p.links.map(function(x){return '<a href="'+esc(x.url)+'" target="_blank" rel="noopener">'+esc(x.label||x.url)+'</a>'}).join(' · ')+'</div>':'')+'</div><h3>Published artworks ('+works.length+')</h3><div class="grid">'+(works.length?works.map(artworkCard).join(''):'<p class="mut">No artworks published yet.</p>')+'</div><h3>Journal and blogs ('+blogs.length+')</h3><div class="posts">'+(blogs.length?blogs.map(function(x){return '<div class="journal-card"><div class="meta">'+fmt(x.dt)+' · '+esc(x.g)+'</div><h3>'+esc(x.t)+'</h3><p>'+esc(x.s)+'</p><button class="btn sm" data-post="'+x.id+'">Read full journal</button></div>'}).join(''):'<p class="mut">No journal posts yet.</p>')+'</div>';
     $('#profile').onclick=function(e){var b=e.target.closest('[data-id]');if(b&&b.classList.contains('art-open'))openW(+b.dataset.id,'r');var j=e.target.closest('[data-post]');if(j)location.hash='journal-post?id='+j.dataset.post};
@@ -566,7 +566,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     var rs=await Promise.all([
       sb.from('artworks').select('*').order('created_at',{ascending:false}),
       sb.from('public_profiles').select('*').order('created_at',{ascending:false}),
-      sb.from('journal_posts').select('*').eq('status','published').order('published_at',{ascending:false}),
+      sb.from('journal_posts').select('*').order('created_at',{ascending:false}),
       sb.from('exhibitions').select('*').eq('status','published').order('starts_on',{ascending:true}),
       sb.from('homepage_slides').select('*').eq('is_active',true).order('sort_order',{ascending:true})
     ]);
@@ -582,7 +582,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     if(!localSlides.length)localSlides=seed().slides;
     db.works=localWorks.concat(rs[0].data.map(workFromRow));
     db.profiles=localProfiles.concat(rs[1].data.map(profileFromRow));
-    db.posts=localPosts.concat(rs[2].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.title,c:r.author_name,g:r.category,dt:r.published_at||r.created_at,s:r.summary,b:r.body,img:r.cover_image_path||''};}));
+    db.posts=localPosts.concat(rs[2].data.map(function(r){return{id:r.id,supabaseId:r.id,authorId:r.author_id,t:r.title,c:r.author_name,g:r.category,dt:r.published_at||r.created_at,s:r.summary,b:r.body,img:r.cover_image_path||'',st:r.status};}));
     db.exs=localExhibitions.concat(rs[3].data.map(function(r){return{id:r.id,supabaseId:r.id,m:r.museum_name,c:r.city||'',t:r.title,cu:r.curator_name||'',s:r.starts_on||today(),e:r.ends_on||today(),ar:'',description:r.description||''};}));
     db.slides=localSlides.concat(rs[4].data.map(function(r){return{id:r.id,supabaseId:r.id,t:r.headline,s:r.subtitle,b:r.button_label,l:r.button_target,k:r.art_style,c1:r.background_color,c2:r.button_color,c3:r.art_color,img:r.image_path?sbImage(r.image_path):'',imagePath:r.image_path||''};}));
     /* Prefer a persisted custom-image slide as the initial homepage slide after every reload. */
@@ -600,6 +600,15 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
   }
   async function sbRefresh(){try{await sbHydrate();refresh(true);updateIdentity();route();}catch(e){console.error('Supabase load failed',e);sbNotice('Could not load Supabase data. Check Data API grants, the public_profiles view and RLS policies.');}}
   function sbLoginMarkup(){return '<form id="supabaseLogin" class="pf" style="max-width:480px"><h3>Already registered? Sign in</h3><label>Email<input name="email" type="email" required autocomplete="email"></label><label>Password<input name="password" type="password" required autocomplete="current-password" minlength="8"></label><button class="btn" type="submit">Sign in</button></form>';}
+  var sbOriginalRenderDashboard=renderDashboard;
+  renderDashboard=function(){
+    sbOriginalRenderDashboard();
+    var host=document.querySelector('#dashboard');
+    if(!host||!sbUser||!sbProfile)return;
+    var mine=(db.posts||[]).filter(function(p){return p.supabaseId&&p.authorId===sbUser.id;});
+    var form='<section class="band" style="margin-top:32px"><h3>Submit to Curators’ Journal</h3><p class="sub">Signed-in users can submit an essay, practice note, studio visit, guide or news post. Your post stays private until an administrator approves it.</p><form id="journalSubmit" class="af"><label>Post title<input name="title" required maxlength="180"></label><label>Category<select name="category"><option>Essay</option><option>Practice</option><option>Studio visit</option><option>Guide</option><option>News</option></select></label><label>Short summary<textarea name="summary" required maxlength="600"></textarea></label><label>Full article<textarea name="body" required rows="8"></textarea></label><label>Cover image (optional)<input name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/avif"></label><button class="btn dark" type="submit">Submit journal post for approval</button></form><h3 style="margin-top:24px">Your journal submissions</h3>'+(mine.length?mine.map(function(p){return '<div class="row2"><div><b>'+esc(p.t)+'</b><br><span class="mut">'+esc(p.g)+' · '+fmt(p.dt)+'</span></div><span class="pill">'+esc(p.st==='published'?'Published':p.st==='rejected'?'Rejected':'Pending approval')+'</span></div>'}).join(''):'<p class="mut">You have not submitted a journal post yet.</p>')+'</section>';
+    host.insertAdjacentHTML('beforeend',form);
+  };
   var sbOriginalRenderSell=renderSell;
   renderSell=function(){
     sbOriginalRenderSell();
@@ -650,7 +659,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     localStorage.removeItem('zartz_pending_profile');sbProfile=profileFromRow(saved.data);return sbProfile;
   }
   document.addEventListener('submit',async function(e){
-    var f=e.target;if(!f||!['sp','sa','supabaseLogin','sbAdminLogin','payform','af'].includes(f.id))return;
+    var f=e.target;if(!f||!['sp','sa','supabaseLogin','sbAdminLogin','journalSubmit','payform','af'].includes(f.id))return;
     var pendingImage=f.querySelector('input[data-img][data-processing="true"]');if(pendingImage){e.preventDefault();e.stopImmediatePropagation();sbNotice('Please wait until the image preview finishes loading, then save again.',f);return;}
     if(f.id==='af'&&(!sbUser||!sbAdmin))return;
     e.preventDefault();e.stopImmediatePropagation();if(sbBusy)return;sbBusy=true;
@@ -679,6 +688,14 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
         if(!row.title||!Number.isFinite(row.price)||row.price<=0)throw new Error('Enter an artwork title and a price greater than zero.');
         var ins=await sb.from('artworks').insert(row).select('*').single();if(ins.error)throw ins.error;
         await sbRefresh();location.hash='#dashboard';sbNotice('Artwork submitted for administrator review.');
+      }else if(f.id==='journalSubmit'){
+        if(!sbUser||!sbProfile)throw new Error('Sign in before submitting a journal post.');
+        var jd=new FormData(f),cover=jd.get('cover'),coverPath=null;
+        if(cover&&cover.size){if(!/^image\\/(jpeg|png|webp|avif)$/.test(cover.type))throw new Error('Cover image must be JPEG, PNG, WebP or AVIF.');if(cover.size>10*1024*1024)throw new Error('Cover image must be 10 MB or smaller.');coverPath=await sbUpload('artwork-images',cover,sbUser.id);}
+        var postRow={author_id:sbUser.id,title:String(jd.get('title')||'').trim(),author_name:sbProfile.name,category:String(jd.get('category')||'Essay'),summary:String(jd.get('summary')||'').trim(),body:String(jd.get('body')||'').trim(),cover_image_path:coverPath,status:'pending',published_at:null};
+        if(!postRow.title||!postRow.summary||!postRow.body)throw new Error('Complete the title, summary and full article before submitting.');
+        var posted=await sb.from('journal_posts').insert(postRow).select('*').single();if(posted.error)throw posted.error;
+        await sbRefresh();location.hash='#dashboard';sbNotice('Journal post submitted. It will appear in Curators’ Journal after admin approval.',document.querySelector('#dashboard'));
       }else if(f.id==='payform'){
         var email=document.querySelector('#payemail').value.trim(),items=db.cart.map(wk).filter(Boolean);
         if(!items.length)throw new Error('Your cart is empty.');
@@ -698,8 +715,13 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
           }
         }
         if(tab==='works'){
-          var item=edit!=null?db.works.filter(function(x){return String(x.id)===String(edit)})[0]:null;if(!item||!item.supabaseId)throw new Error('Only database-backed artwork can be edited.');
-          var up=await sb.from('artworks').update({title:values.t,artist_name:values.a,medium:values.m||values.category,year:Number(values.y)||null,dimensions:values.sz,price:Number(values.p)||0,description:values.d||'',status:values.st==='live'?'approved':values.st}).eq('id',item.supabaseId);if(up.error)throw up.error;
+          var item=edit!=null?db.works.filter(function(x){return String(x.id)===String(edit)})[0]:null;
+          var artworkImagePath=item&&item.imagePath||null;
+          if(values.img&&String(values.img).indexOf('data:image/')===0){var artBlob=await (await fetch(values.img)).blob();var artFile=new File([artBlob],'admin-artwork-'+Date.now()+'.jpg',{type:artBlob.type||'image/jpeg'});artworkImagePath=await sbUpload('artwork-images',artFile,sbUser.id);}
+          var artworkRow={title:String(values.t||'').trim(),artist_name:String(values.a||sbProfile.name).trim(),original_artist_name:String(values.a||sbProfile.name).trim(),medium:values.m||values.category||'Other',year:Number(values.y)||null,dimensions:values.sz||'',price:Number(values.p)||0,currency:'GHS',description:values.d||'',image_path:artworkImagePath,art_style:values.k||'circles',exhibition_id:values.ex&&/^[0-9a-f-]{36}$/i.test(String(values.ex))?values.ex:null,status:item?(values.st==='live'?'approved':values.st):(values.st==='live'?'pending':values.st||'pending')};
+          if(!artworkRow.title||!Number.isFinite(artworkRow.price)||artworkRow.price<=0)throw new Error('Enter an artwork title and a price greater than zero.');
+          if(item){if(!item.supabaseId)throw new Error('Only database-backed artwork can be edited.');var up=await sb.from('artworks').update(artworkRow).eq('id',item.supabaseId);if(up.error)throw up.error;}
+          else{artworkRow.seller_id=sbUser.id;var insertedArtwork=await sb.from('artworks').insert(artworkRow).select('*').single();if(insertedArtwork.error)throw insertedArtwork.error;}
         }else if(tab==='slides'){
           var slide=edit!=null?db.slides.filter(function(x){return String(x.id)===String(edit)})[0]:null;
           var imagePath=slide&&slide.imagePath||null;
@@ -717,7 +739,7 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
           var savedS=slide&&slide.supabaseId?await sb.from('homepage_slides').update(rowS).eq('id',slide.supabaseId):await sb.from('homepage_slides').insert(rowS);if(savedS.error)throw savedS.error;
           if(slide&&!slide.supabaseId)db.slides=db.slides.filter(function(x){return String(x.id)!==String(slide.id)});
         }else if(tab==='posts'){
-          var post=edit!=null?db.posts.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowP={title:values.t,author_name:values.c,category:values.g,summary:values.s||'',body:values.b||'',status:'published',published_at:values.dt||today()};
+          var post=edit!=null?db.posts.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowP={title:values.t,author_id:post&&post.authorId||sbUser.id,author_name:values.c||sbProfile.name,category:values.g||'Essay',summary:values.s||'',body:values.b||'',status:post?(post.st||'pending'):'pending',published_at:post&&post.st==='published'?(post.dt||values.dt||today()):null};
           var savedP=post&&post.supabaseId?await sb.from('journal_posts').update(rowP).eq('id',post.supabaseId):await sb.from('journal_posts').insert(rowP);if(savedP.error)throw savedP.error;
         }else if(tab==='exs'){
           var ex=edit!=null?db.exs.filter(function(x){return String(x.id)===String(edit)})[0]:null,rowE={title:values.t,museum_name:values.m,city:values.c,curator_name:values.cu,starts_on:values.s||null,ends_on:values.e||null,description:values.description||'',status:'published'};
@@ -740,11 +762,14 @@ $('#admin').onclick=function(e){var d=e.target.dataset;if(!d)return;
     finally{sbBusy=false;if(button)button.disabled=false;}
   },true);
   document.addEventListener('click',async function(e){
-    var b=e.target.closest('#switchSeller,#sbSignOut,[data-reviewApprove],[data-reviewReject],[data-ap],[data-del],[data-out]');if(!b)return;
+    var b=e.target.closest('#switchSeller,#sbSignOut,[data-reviewApprove],[data-reviewReject],[data-post-approve],[data-ap],[data-del],[data-out]');if(!b)return;
     if(b.id==='switchSeller'||b.id==='sbSignOut'){e.preventDefault();e.stopImmediatePropagation();await sb.auth.signOut();sbUser=null;sbProfile=null;sbAdmin=false;db.currentProfileId=null;sessionStorage.removeItem('zadm');await sbRefresh();location.hash='#sell';return;}
     if(b.dataset.reviewApprove||b.dataset.ap){
       e.preventDefault();e.stopImmediatePropagation();
       try{if(!sbAdmin)throw new Error('Administrator access required.');var w=db.works.filter(function(x){return String(x.id)===String(b.dataset.reviewApprove||b.dataset.ap)})[0];if(!w||!w.supabaseId)throw new Error('Artwork record not found.');var u=await sb.from('artworks').update({status:'approved',reviewed_at:new Date().toISOString(),review_note:'Approved by administrator'}).eq('id',w.supabaseId);if(u.error)throw u.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
+    }else if(b.dataset.postApprove){
+      e.preventDefault();e.stopImmediatePropagation();
+      try{if(!sbAdmin)throw new Error('Administrator access required.');var post=db.posts.filter(function(x){return String(x.id)===String(b.dataset.postApprove)})[0];if(!post||!post.supabaseId)throw new Error('Journal post record not found.');var pu=await sb.from('journal_posts').update({status:'published',published_at:new Date().toISOString()}).eq('id',post.supabaseId);if(pu.error)throw pu.error;tab='posts';await sbRefresh();admin();sbNotice('Journal post approved and published.',document.querySelector('#admin'));}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
     }else if(b.dataset.reviewReject){
       e.preventDefault();e.stopImmediatePropagation();
       try{if(!sbAdmin)throw new Error('Administrator access required.');var w2=db.works.filter(function(x){return String(x.id)===String(b.dataset.reviewReject)})[0];if(!w2||!w2.supabaseId)throw new Error('Artwork record not found.');var note=prompt('Reason for rejection (optional):','Please update the artwork details and resubmit.');var u2=await sb.from('artworks').update({status:'rejected',reviewed_at:new Date().toISOString(),review_note:note||'Submission was not approved.'}).eq('id',w2.supabaseId);if(u2.error)throw u2.error;await sbRefresh();admin();}catch(err){sbNotice(err.message,document.querySelector('#admin'))}
