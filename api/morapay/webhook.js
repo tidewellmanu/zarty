@@ -9,7 +9,12 @@ module.exports = async function handler(req, res) {
   if (!secret || !apiSecret || !publicKey || !sbKey) return res.status(500).json({ received: false, message: 'Webhook configuration is incomplete.' });
 
   try {
-    const raw = req.rawBody ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : String(req.rawBody)) : JSON.stringify(req.body || {});
+    const raw = req.rawBody ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : String(req.rawBody)) : await new Promise((resolve, reject) => {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      req.on('error', reject);
+    });
     const payload = JSON.parse(raw);
     const signature = String(req.headers['morapay-signature'] || '');
     const { Morapay } = await import('@morapay/sdk');
@@ -55,3 +60,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ received: false });
   }
 };
+
+module.exports.config = { api: { bodyParser: false } };
